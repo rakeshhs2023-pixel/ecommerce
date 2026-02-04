@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>AmaClone – E-Commerce Demo</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<style>
+/* ================== GLOBAL ================== */
+:root{
+  --bg:#ffffff;
+  --text:#000000;
+  --primary:#febd69;
+  --dark:#131921;
+}
+body.dark{
+  --bg:#121212;
+  --text:#ffffff;
+}
+body{
+  margin:0;
+  font-family:Arial, sans-serif;
+  background:var(--bg);
+  color:var(--text);
+}
+
+/* ================== HEADER ================== */
+header{
+  background:var(--dark);
+  color:white;
+  display:flex;
+  align-items:center;
+  gap:10px;
+  padding:10px;
+}
+.logo{
+  font-size:22px;
+  font-weight:bold;
+  color:var(--primary);
+}
+header input{
+  flex:1;
+  padding:8px;
+}
+header button, header a{
+  background:none;
+  border:none;
+  color:white;
+  cursor:pointer;
+  text-decoration:none;
+  font-size:14px;
+}
+
+/* ================== CAROUSEL ================== */
+.carousel{
+  position:relative;
+}
+.carousel img{
+  width:100%;
+  height:300px;
+  object-fit:cover;
+}
+.carousel button{
+  position:absolute;
+  top:50%;
+  transform:translateY(-50%);
+  background:rgba(0,0,0,0.5);
+  color:white;
+  border:none;
+  font-size:24px;
+  padding:10px;
+  cursor:pointer;
+}
+.prev{left:10px;}
+.next{right:10px;}
+
+/* ================== PRODUCTS ================== */
+.products{
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(220px,1fr));
+  gap:15px;
+  padding:20px;
+}
+.product{
+  border:1px solid #ddd;
+  padding:10px;
+  transition:0.3s;
+}
+.product:hover{transform:scale(1.03);}
+.product img{
+  width:100%;
+  height:180px;
+  object-fit:cover;
+}
+.product button{
+  background:var(--primary);
+  border:none;
+  padding:8px;
+  cursor:pointer;
+  width:100%;
+  margin-top:5px;
+}
+
+/* ================== CART MODAL ================== */
+.modal{
+  display:none;
+  position:fixed;
+  inset:0;
+  background:rgba(0,0,0,0.6);
+}
+.modal-content{
+  background:var(--bg);
+  width:90%;
+  max-width:400px;
+  margin:50px auto;
+  padding:20px;
+}
+
+/* ================== TOAST ================== */
+.toast{
+  position:fixed;
+  bottom:20px;
+  right:20px;
+  background:#333;
+  color:white;
+  padding:10px 15px;
+  border-radius:5px;
+}
+</style>
+</head>
+
+<body>
+
+<!-- ================== HEADER ================== -->
+<header>
+  <div class="logo">AmaClone</div>
+  <input type="text" id="search" placeholder="Search products">
+  <button onclick="toggleDark()">🌙</button>
+  <button onclick="openCart()">🛒 Cart (<span id="cartCount">0</span>)</button>
+</header>
+
+<!-- ================== CAROUSEL ================== -->
+<div class="carousel">
+  <img id="banner" src="https://picsum.photos/1200/300?1">
+  <button class="prev" onclick="prevBanner()">❮</button>
+  <button class="next" onclick="nextBanner()">❯</button>
+</div>
+
+<!-- ================== PRODUCTS ================== -->
+<div class="products" id="productList"></div>
+
+<!-- ================== CART ================== -->
+<div class="modal" id="cartModal">
+  <div class="modal-content">
+    <h3>Your Cart</h3>
+    <div id="cartItems"></div>
+    <h4>Total: ₹<span id="total">0</span></h4>
+    <button onclick="closeCart()">Close</button>
+  </div>
+</div>
+
+<script>
+/* ================== DATA ================== */
+const products = [
+ {id:1,title:"Wireless Headphones",price:2999,img:"https://picsum.photos/300?1"},
+ {id:2,title:"Smart Watch",price:4999,img:"https://picsum.photos/300?2"},
+ {id:3,title:"Running Shoes",price:1999,img:"https://picsum.photos/300?3"},
+ {id:4,title:"Bluetooth Speaker",price:2499,img:"https://picsum.photos/300?4"},
+ {id:5,title:"Laptop Backpack",price:1499,img:"https://picsum.photos/300?5"}
+];
+
+/* ================== INIT ================== */
+const list=document.getElementById("productList");
+const search=document.getElementById("search");
+
+function render(listData){
+  list.innerHTML="";
+  listData.forEach(p=>{
+    list.innerHTML+=`
+      <div class="product">
+        <img src="${p.img}">
+        <h4>${p.title}</h4>
+        <p>₹${p.price}</p>
+        <button onclick="addToCart(${p.id})">Add to Cart</button>
+      </div>`;
+  });
+}
+render(products);
+
+/* ================== SEARCH ================== */
+search.oninput=()=>{
+  const v=search.value.toLowerCase();
+  render(products.filter(p=>p.title.toLowerCase().includes(v)));
+};
+
+/* ================== CART ================== */
+function getCart(){
+  return JSON.parse(localStorage.getItem("cart")||"[]");
+}
+function saveCart(c){
+  localStorage.setItem("cart",JSON.stringify(c));
+  document.getElementById("cartCount").innerText=c.length;
+}
+function addToCart(id){
+  const cart=getCart();
+  cart.push(products.find(p=>p.id===id));
+  saveCart(cart);
+  toast("Added to cart");
+}
+saveCart(getCart());
+
+function openCart(){
+  document.getElementById("cartModal").style.display="block";
+  const items=document.getElementById("cartItems");
+  const cart=getCart();
+  let total=0;
+  items.innerHTML="";
+  cart.forEach((p,i)=>{
+    total+=p.price;
+    items.innerHTML+=`${p.title} - ₹${p.price}
+      <button onclick="removeItem(${i})">❌</button><br>`;
+  });
+  document.getElementById("total").innerText=total;
+}
+function closeCart(){document.getElementById("cartModal").style.display="none";}
+function removeItem(i){
+  const cart=getCart();
+  cart.splice(i,1);
+  saveCart(cart);
+  openCart();
+}
+
+/* ================== CAROUSEL ================== */
+let banners=[
+ "https://picsum.photos/1200/300?10",
+ "https://picsum.photos/1200/300?11",
+ "https://picsum.photos/1200/300?12"
+];
+let b=0;
+function nextBanner(){b=(b+1)%banners.length;banner.src=banners[b];}
+function prevBanner(){b=(b-1+banners.length)%banners.length;banner.src=banners[b];}
+setInterval(nextBanner,4000);
+
+/* ================== DARK MODE ================== */
+function toggleDark(){
+  document.body.classList.toggle("dark");
+}
+
+/* ================== TOAST ================== */
+function toast(msg){
+  const t=document.createElement("div");
+  t.className="toast";
+  t.innerText=msg;
+  document.body.appendChild(t);
+  setTimeout(()=>t.remove(),2000);
+}
+</script>
+
+</body>
+</html>
